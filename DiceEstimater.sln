@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.7.34024.191
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DiceEstimater", "DiceEstimater.vcxproj", "{F9D2D52E-517A-487C-B172-E2D692755E09}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F9D2D52E-517A-487C-B172-E2D692755E09}.Debug|x64.ActiveCfg = Debug|x64
+		{F9D2D52E-517A-487C-B172-E2D692755E09}.Debug|x64.Build.0 = Debug|x64
+		{F9D2D52E-517A-487C-B172-E2D692755E09}.Release|x64.ActiveCfg = Release|x64
+		{F9D2D52E-517A-487C-B172-E2D692755E09}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {B4B5FB4D-ED54-4521-9F8C-3B7E6D95B215}
+	EndGlobalSection
+EndGlobal
