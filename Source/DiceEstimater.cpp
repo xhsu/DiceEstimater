@@ -49,6 +49,30 @@ namespace Statistics
 
 		return (int_fast16_t)-1;
 	}
+
+	inline constexpr auto Range(std::vector<double> const& rgfl, int_fast16_t iMin, int_fast16_t iMax, double flStdDev) noexcept
+	{
+		auto tmp{ 1.0 };
+
+		for (auto&& [iDamage, flChance] :
+			std::views::enumerate(rgfl)
+			| std::views::drop_while([](auto&& pr) noexcept { return std::get<1>(pr) == 0; })
+			)
+		{
+			tmp -= 2 * flChance;	// symmetric
+
+			if (tmp < flStdDev)
+				break;
+
+			++iMin;
+			--iMax;
+
+			if (iMin > iMax)
+				break;	// ERROR!
+		}
+
+		return std::pair{ iMin, iMax };
+	}
 }
 
 struct dice_t final
@@ -231,18 +255,19 @@ void PrintDiceStat(dice_t const& dice = 2_d8 + 4_d6 + 5) noexcept
 	std::print(u8"骰子：{}\n", dice.ToString());
 
 	auto const possib = dice.Possibilities();
+	auto const [iMin, iMax] = dice.Range();
 
 	std::print(u8"潛在結果：{}\n", possib);
-	std::print(u8"範圍：[{}-{}]\n期朢值：{}\n", dice.Range().first, dice.Range().second, dice.Expectation());
+	std::print(u8"範圍：[{} - {}]\n期朢值：{}\n", iMin, iMax, dice.Expectation());
 	std::print(u8"\n");
 
 	auto const perc = dice.Percentages();
 
 	for (auto&& [what, percentage] : std::views::enumerate(perc))
 		if (percentage > 0)
-			std::print(u8"{0:>2}: {1:>5.2f}% - {3:*<{2}}\n", what, percentage * 100, (int)std::round(percentage * 100), "");
+			std::print(u8"{0:>2}: {1:>5.2f}% - {3:*<{2}}\n", what, percentage * 100, (int)std::round(percentage * 400), "");
 
-	std::print(u8" - 計：{}\n", perc.size() - dice.Range().first);
+	std::print(u8" - 計：{}\n", perc.size() - iMin);
 
 	std::print(u8"\n");
 	//std::print("Chance to kill HP 50: {0:.1f}%\n", dice_t::ChanceToKill(perc, 50) * 100);
@@ -250,6 +275,19 @@ void PrintDiceStat(dice_t const& dice = 2_d8 + 4_d6 + 5) noexcept
 	std::print(u8"存在80%之可能性使結果 >= {}\n", Statistics::Confidence(perc, 0.8));
 	std::print(u8"存在90%之可能性使結果 >= {}\n", Statistics::Confidence(perc, 0.9));
 	std::print(u8"絕對信心值 == {}\n", Statistics::Confidence(perc));
+
+	std::print(u8"\n");
+
+	auto const OneSigma = Statistics::Range(perc, iMin, iMax, 0.682689492137);
+	auto const TwoSigma = Statistics::Range(perc, iMin, iMax, 0.954499736104);
+	auto const ThreeSigma = Statistics::Range(perc, iMin, iMax, 0.997300203937);
+
+	std::print(u8"常態分佈數據：\n");
+	std::print(u8"1σ: [{} - {}]\n", OneSigma.first, OneSigma.second);
+	std::print(u8"2σ: [{} - {}]\n", TwoSigma.first, TwoSigma.second);
+	std::print(u8"3σ: [{} - {}]\n", ThreeSigma.first, ThreeSigma.second);
+
+	std::print(u8"\n");
 }
 
 std::vector<std::string_view> UTIL_Split(std::string_view s, std::string_view delimiters) noexcept
