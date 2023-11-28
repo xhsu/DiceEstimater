@@ -79,6 +79,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Source\DiceEstimater.cpp" />
+    <ClCompile Include="Source\ShuntingYardAlgorithm.cpp" />
+    <ClCompile Include="Source\Utility.ixx" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
