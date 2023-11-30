@@ -378,6 +378,7 @@ void PrintDiceStat(int16_t modifier, vector<int16_t> const& dice) noexcept
 
 int main(int argc, char* argv[]) noexcept
 {
+	auto const bSkipPushToContinue = argc > 1;
 	string szInput{};
 
 	if (argc > 1)
@@ -502,6 +503,8 @@ int main(int argc, char* argv[]) noexcept
 		PrintDiceStat(modifier, dice);
 	}
 
-	system("pause");
+	if (!bSkipPushToContinue)
+		system("pause");
+
 	return 0;
 }
