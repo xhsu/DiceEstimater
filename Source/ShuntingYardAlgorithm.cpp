@@ -160,7 +160,7 @@ CONSTEXPR vector<string_view> ShuntingYardAlgorithm(string_view s)
 	{
 		if (auto const trimmed = UTIL_Trim(s.substr(last_pos, pos - last_pos)); trimmed.length())
 		{
-			if (phase)	// split operators.
+			if (phase)	// split operators. e.g. a/(b+c) must be split to 'a' '/' '(' 'b' '+' 'c' rather than 'a' '/(' 'b'
 			{
 				for (auto& c : trimmed)
 					identifiers.emplace_back(&c, 1);
