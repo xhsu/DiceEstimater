@@ -203,6 +203,43 @@ namespace Statistics
 #undef TEST_DICE
 }
 
+namespace Precompiled
+{
+	consteval auto Advantage()
+	{
+		array<uint16_t, 21> res{};
+
+		for (int16_t i = 1; i <= 20; ++i)
+		{
+			for (decltype(i) j = 1; j <= 20; ++j)
+			{
+				++res[std::max(i, j)];
+			}
+		}
+
+		return res;
+	}
+
+	inline constexpr auto ADVANTAGED = Advantage();
+
+	consteval auto Disadvantage()
+	{
+		array<uint16_t, 21> res{};
+
+		for (int16_t i = 1; i <= 20; ++i)
+		{
+			for (decltype(i) j = 1; j <= 20; ++j)
+			{
+				++res[std::min(i, j)];
+			}
+		}
+
+		return res;
+	}
+
+	inline constexpr auto DISADVANTAGED = Disadvantage();
+}
+
 namespace Dice
 {
 	struct Arrange final
