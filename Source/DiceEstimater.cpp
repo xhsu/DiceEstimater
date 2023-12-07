@@ -18,6 +18,8 @@
 import std.compat;
 #endif
 
+#include <version>	// all marcos.
+
 import Utility;
 
 using std::array;
@@ -78,7 +80,22 @@ namespace Statistics
 		return pair{ iLeftBound, iRightBound };
 	}
 
-	constexpr auto Challenge(int32_t minimum, vector<double> const& rgflPercentages, int16_t dc) noexcept
+	constexpr auto Challenge(int16_t minimum, vector<double> const& rgflPercentages, int16_t dc) noexcept
+	{
+		double pass{};
+
+		for (auto&& [iResult, flChance] : std::views::zip(std::views::iota(minimum), rgflPercentages))
+		{
+			if (iResult < dc)
+				continue;
+
+			pass += flChance;
+		}
+
+		return pass;
+	}
+
+	constexpr auto ChallengeEx(int32_t minimum, vector<double> const& rgflPercentages, int16_t dc) noexcept
 	{
 		double pass{};
 
@@ -143,10 +160,11 @@ namespace Statistics
 		auto const offset = modifier - lower_bound;
 		auto const should_reserve = upper_bound - lower_bound + 1;
 
-		vector<uint32_t> ret{};	// flat map? #UPDATE_AT_CPP23_flat_meow
+		vector<uint64_t> ret{};	// flat map? #UPDATE_AT_CPP23_flat_meow
 		ret.resize(should_reserve);
 
-		auto const fnRecursive = [&](this auto&& self, int16_t val, size_t index) noexcept
+		auto const fnIterateAllDice =
+			[&](this auto&& self, int16_t val, size_t index) noexcept
 			{
 				if (index == dice.size())
 				{
@@ -163,7 +181,7 @@ namespace Statistics
 				}
 			};
 
-		fnRecursive(0, 0);
+		fnIterateAllDice(0, 0);
 		return ret;
 	}
 
@@ -203,41 +221,107 @@ namespace Statistics
 #undef TEST_DICE
 }
 
-namespace Precompiled
+namespace AbilityCheck
 {
-	consteval auto Advantage()
-	{
-		array<uint16_t, 21> res{};
-
-		for (int16_t i = 1; i <= 20; ++i)
+	inline constexpr auto ADVANTAGED_FREQ =
+		[]() consteval
 		{
-			for (decltype(i) j = 1; j <= 20; ++j)
-			{
-				++res[std::max(i, j)];
-			}
-		}
+			array<uint16_t, 21> res{};
 
-		return res;
+			for (int16_t i = 1; i <= 20; ++i)
+			{
+				for (decltype(i) j = 1; j <= 20; ++j)
+				{
+					++res[std::max(i, j)];
+				}
+			}
+
+			return res;
+		}
+	();
+
+	constexpr uint16_t AdvantageFrequency(int16_t val) noexcept { return 2 * std::clamp<decltype(val)>(val, 1, 20) - 1; }
+
+	inline constexpr auto DISADVANTAGED_FREQ =
+		[]() consteval
+		{
+			array<uint16_t, 21> res{};
+
+			for (int16_t i = 1; i <= 20; ++i)
+			{
+				for (decltype(i) j = 1; j <= 20; ++j)
+				{
+					++res[std::min(i, j)];
+				}
+			}
+
+			return res;
+		}
+	();
+
+	constexpr uint16_t DisadvantageFrequency(int16_t val) noexcept { return AdvantageFrequency(21 - val); }
+
+	inline constexpr auto TWO_D20_RES_COUNT = std::ranges::fold_left(ADVANTAGED_FREQ, 0, std::plus<std::ranges::range_value_t<decltype(ADVANTAGED_FREQ)>>{});
+	static_assert(TWO_D20_RES_COUNT == 400, "Simple math, 20 * 20 == 400");
+
+	consteval auto GenerateSample(std::ranges::range auto&& freq)
+	{
+		auto const spl = std::views::enumerate(freq)
+			| std::views::transform([](auto&& obj) { return std::views::repeat(std::get<0>(obj), std::get<1>(obj)); })
+			| std::views::join
+			| std::ranges::to<vector>();
+
+		if (std::ranges::size(spl) != TWO_D20_RES_COUNT)
+			throw std::logic_error("Must be size of 400!");
+
+		array<uint16_t, TWO_D20_RES_COUNT> ret{};
+
+		for (auto&& [lhs, rhs] : std::views::zip(ret, spl))
+			lhs = static_cast<std::ranges::range_value_t<decltype(ret)>>(rhs);
+
+		return ret;
 	}
 
-	inline constexpr auto ADVANTAGED = Advantage();
+	inline constexpr auto ADVANTAGED_SAMPLE = GenerateSample(ADVANTAGED_FREQ);
+	inline constexpr auto DISADVANTAGED_SAMPLE = GenerateSample(DISADVANTAGED_FREQ);
 
-	consteval auto Disadvantage()
+	constexpr auto Percentages(int16_t modifier, vector<int16_t> const& dice, std::ranges::input_range auto&& spl) noexcept
 	{
-		array<uint16_t, 21> res{};
+		auto const total = static_cast<double>(Statistics::Possibilities(dice) * TWO_D20_RES_COUNT);
+		auto const lower_bound = Statistics::LowerBound(modifier, dice) + 1;
+		auto const upper_bound = Statistics::UpperBound(modifier, dice) + 20;
+		auto const offset = modifier - lower_bound;
+		auto const should_reserve = upper_bound - lower_bound + 1;
 
-		for (int16_t i = 1; i <= 20; ++i)
-		{
-			for (decltype(i) j = 1; j <= 20; ++j)
+		vector<uint32_t> ret{};	// flat map? #UPDATE_AT_CPP23_flat_meow
+		ret.resize(should_reserve);
+
+		auto const fnIterateAllDice =
+			[&](this auto&& self, int16_t val, size_t index) noexcept
 			{
-				++res[std::min(i, j)];
-			}
-		}
+				if (index == dice.size())
+				{
+					++ret[val + offset];
+					return;
+				}
 
-		return res;
+				auto const start = dice[index] < 0 ? dice[index] : 1;
+				auto const stop = dice[index] < 0 ? -1 : dice[index];
+
+				for (auto i = start; i <= stop; ++i)
+				{
+					self(val + i, index + 1);
+				}
+			};
+
+		for (auto&& d20_value : spl)
+			fnIterateAllDice(d20_value, 0);
+
+		return
+			ret
+			| std::views::transform([&](auto&& cnt) noexcept { return (double)cnt / total; })
+			| std::ranges::to<vector>();
 	}
-
-	inline constexpr auto DISADVANTAGED = Disadvantage();
 }
 
 namespace Dice
@@ -354,7 +438,7 @@ void PrintDiceStat(int16_t modifier, vector<int16_t> const& dice) noexcept
 	auto const peak = std::ranges::max(percentages);	// for normalizing graph
 
 	for (auto&& [damage, percentage] : std::views::zip(std::views::iota(iMin), percentages))
-		std::print(u8"{0:>2}: {1:>5.2f}% - {3:*<{2}}\n", damage, percentage * 100, (int)std::round(percentage / peak * 100), "");
+		std::print(u8"{0:>2}: {1:>5.2f}% - {3:─<{2}}\n", damage, percentage * 100, (int)std::round(percentage / peak * 100), "");
 
 	std::print(u8" - 計：{}\n", percentages.size());
 
@@ -389,6 +473,12 @@ void PrintDiceStat(int16_t modifier, vector<int16_t> const& dice) noexcept
 
 		static constexpr array rgiChallenges{ 2, 5, -1, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, -1, 25, 30, 35 };
 
+		auto modifier_dice{ dice };
+		std::erase(modifier_dice, 20);	// erase all d20
+
+		auto const adv_percentages = AbilityCheck::Percentages(modifier, modifier_dice, AbilityCheck::ADVANTAGED_SAMPLE);
+		auto const disadv_percentages = AbilityCheck::Percentages(modifier, modifier_dice, AbilityCheck::DISADVANTAGED_SAMPLE);
+
 		for (auto i : rgiChallenges)
 		{
 			if (i < 1)
@@ -397,7 +487,9 @@ void PrintDiceStat(int16_t modifier, vector<int16_t> const& dice) noexcept
 				continue;
 			}
 
-			auto const [pass, pass_when_adv, pass_when_disadv] = Statistics::Challenge(iMin, percentages, i);
+			auto const pass = Statistics::Challenge(iMin, percentages, i);
+			auto const pass_when_adv = Statistics::Challenge(iMin, adv_percentages, i);
+			auto const pass_when_disadv = Statistics::Challenge(iMin, disadv_percentages, i);
 
 			std::print(
 				u8"║{0:^{4}}│{1:^{5}}│{2:^{4}}│{3:^{4}}║\n",
@@ -418,6 +510,7 @@ int main(int argc, char* argv[]) noexcept
 	auto const bSkipPushToContinue = argc > 1;
 	string szInput{};
 
+LAB_BEGIN:;
 	if (argc > 1)
 	{
 		for (auto i = 1; i < argc; ++i)
@@ -432,6 +525,20 @@ int main(int argc, char* argv[]) noexcept
 		std::getline(std::cin, szInput);
 	}
 
+	if (szInput == "version")
+	{
+		system("cls");
+
+		std::println("MSVC: {}", _MSC_FULL_VER);
+		std::println("C++ Lang: {}L, C++ STL: {}L", __cplusplus, _MSVC_STL_UPDATE);
+		std::println("Software Version {}", 1.1);
+		std::println("");
+
+		system("pause");
+		system("cls");
+		goto LAB_BEGIN;
+	}
+
 	for (auto&& c : szInput)
 	{
 		if (c == 'D')
@@ -440,6 +547,11 @@ int main(int argc, char* argv[]) noexcept
 		if (!"1234567890d+- "sv.contains(c))
 		{
 			std::print(u8"無效輸入：字元'{}'無法解讀\n", c);
+
+			if (!bSkipPushToContinue)
+				system("pause");
+
+			// cannot 'goto' here. fuck C++.
 			return 1;
 		}
 	}
@@ -480,7 +592,12 @@ int main(int argc, char* argv[]) noexcept
 			if (phase)
 			{
 				std::print(u8"格式錯誤：「運算子」應與「骰子」交替。\n\t錯誤位於'{}'處。\n", token);
-				return 1;
+				goto LAB_END;
+			}
+			else if (std::ranges::count(token, 'd') > 1)
+			{
+				std::print(u8"格式錯誤：未指明骰子面數。\n\t錯誤位於'{}'處。\n", token);
+				goto LAB_END;
 			}
 
 			// Is die?
@@ -516,7 +633,7 @@ int main(int argc, char* argv[]) noexcept
 			if (!phase)
 			{
 				std::print(u8"格式錯誤：「運算子」應與「骰子」交替。\n\t錯誤位於'{}'處。\n", token);
-				return 1;
+				goto LAB_END;
 			}
 
 			negative = token[0] == '-';
@@ -525,7 +642,7 @@ int main(int argc, char* argv[]) noexcept
 		else
 		{
 			std::print(u8"無效輸入：不支援的運算子'{}'\n", token);
-			return 1;
+			goto LAB_END;
 		}
 
 		phase = !phase;
@@ -540,6 +657,7 @@ int main(int argc, char* argv[]) noexcept
 		PrintDiceStat(modifier, dice);
 	}
 
+LAB_END:;
 	if (!bSkipPushToContinue)
 		system("pause");
 
