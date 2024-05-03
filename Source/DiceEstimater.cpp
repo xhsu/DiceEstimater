@@ -2,18 +2,9 @@
 //
 
 #if __INTELLISENSE__
-#include <cmath>
-#include <cstdint>
-
-#include <algorithm>
-#include <array>
-#include <chrono>
-#include <iostream>
-#include <print>
-#include <ranges>
-#include <string_view>
-#include <utility>
-#include <vector>
+#define _MSVC_TESTING_NVCC
+#include <__msvc_all_public_headers.hpp>
+#undef _MSVC_TESTING_NVCC
 #else
 import std.compat;
 #endif
@@ -30,6 +21,20 @@ using std::tuple;
 using std::vector;
 
 using namespace std::literals;
+
+namespace Arithmatic
+{
+	template <typename T>
+	concept signed_type = std::signed_integral<T> || std::floating_point<T>;
+
+	constexpr auto abs(signed_type auto n) noexcept -> std::remove_cvref_t<decltype(n)> { return n < 0 ? -n : n; }
+	constexpr auto gcd(std::integral auto a, std::integral auto b) noexcept -> decltype(b % a) { if (a == 0) return b; return gcd(b % a, a); }
+	constexpr auto lcm(std::integral auto a, std::integral auto b) noexcept { if (auto const product = a * b; product != 0) return product / gcd(a, b); return 0; }
+
+	static_assert(abs(-1) == 1 and abs(1) == 1 and abs(0) == 0);
+	static_assert(gcd(123, 456) == 3 and gcd(789, 1011) == 3 and gcd(89, 64) == 1);
+	static_assert(lcm(123, 456) == 18696 and lcm(789, 1011) == 265893 and lcm(89, 64) == 5696);
+}
 
 namespace Statistics
 {
@@ -187,11 +192,11 @@ namespace Statistics
 
 	constexpr auto Percentages(int16_t modifier, vector<int16_t> const& dice) noexcept
 	{
-		auto const total = static_cast<double>(Possibilities(dice));
+		auto const iTotal = Possibilities(dice);
 
 		return
 			Distribution(modifier, LowerBound(modifier, dice), UpperBound(modifier, dice), dice)
-			| std::views::transform([&](auto&& cnt) noexcept { return (double)cnt / total; })
+			| std::views::transform([&](auto&& cnt) noexcept { auto const gcd_ = Arithmatic::gcd(cnt, iTotal); return (double)(cnt / gcd_) / double(iTotal / gcd_); })
 			| std::ranges::to<vector>();
 	}
 
@@ -287,7 +292,7 @@ namespace AbilityCheck
 
 	constexpr auto Percentages(int16_t modifier, vector<int16_t> const& dice, std::ranges::input_range auto&& spl) noexcept
 	{
-		auto const total = static_cast<double>(Statistics::Possibilities(dice) * TWO_D20_RES_COUNT);
+		auto const iTotal = Statistics::Possibilities(dice) * TWO_D20_RES_COUNT;
 		auto const lower_bound = Statistics::LowerBound(modifier, dice) + 1;
 		auto const upper_bound = Statistics::UpperBound(modifier, dice) + 20;
 		auto const offset = modifier - lower_bound;
@@ -319,7 +324,7 @@ namespace AbilityCheck
 
 		return
 			ret
-			| std::views::transform([&](auto&& cnt) noexcept { return (double)cnt / total; })
+			| std::views::transform([&](auto&& cnt) noexcept { auto const gcd_ = Arithmatic::gcd(cnt, iTotal); return (double)(cnt / gcd_) / double(iTotal / gcd_); })
 			| std::ranges::to<vector>();
 	}
 }
