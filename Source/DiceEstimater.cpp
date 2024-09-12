@@ -34,6 +34,32 @@ namespace Arithmatic
 	static_assert(abs(-1) == 1 and abs(1) == 1 and abs(0) == 0);
 	static_assert(gcd(123, 456) == 3 and gcd(789, 1011) == 3 and gcd(89, 64) == 1);
 	static_assert(lcm(123, 456) == 18696 and lcm(789, 1011) == 265893 and lcm(89, 64) == 5696);
+
+	// #POTENTIAL_BUG maybe broken if (char)-128 encounter.
+	template <std::integral T>
+	constexpr int DigitsOf(T num) noexcept
+	{
+		if constexpr (std::signed_integral<T>)
+		{
+			if (num < 0)
+				return DigitsOf(-num);
+		}
+
+		int ret{ num == 0 };
+
+		for (; num; ++ret)
+		{
+			num /= 10;
+		}
+
+		return ret;
+	}
+
+	static_assert(DigitsOf(0) == 1);
+	static_assert(DigitsOf(9) == 1);
+	static_assert(DigitsOf(10) == 2);
+	static_assert(DigitsOf(-10) == 2);
+	static_assert(DigitsOf(100u) == 3);
 }
 
 namespace Statistics
@@ -441,9 +467,10 @@ void PrintDiceStat(int16_t modifier, vector<int16_t> const& dice) noexcept
 
 	auto const percentages = Statistics::Percentages(modifier, dice);
 	auto const peak = std::ranges::max(percentages);	// for normalizing graph
+	auto const max_digits = Arithmatic::DigitsOf(iMin + percentages.size() - 1);
 
 	for (auto&& [damage, percentage] : std::views::zip(std::views::iota(iMin), percentages))
-		std::print(u8"{0:>2}: {1:>5.2f}% - {3:─<{2}}\n", damage, percentage * 100, (int)std::round(percentage / peak * 100), "");
+		std::print(u8"{0:>{4}}: {1:>5.2f}% - {3:─<{2}}\n", damage, percentage * 100, (int)std::round(percentage / peak * 100), "", max_digits);
 
 	std::print(u8" - 計：{}\n", percentages.size());
 
